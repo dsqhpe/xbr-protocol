@@ -503,7 +503,10 @@ contract XBRNetwork is XBRMaintained {
 
         // technical recipient of the unidirectional, half-legged channel must be the
         // owner (operator) of the market
-        require(recipient == markets[marketId].owner, "INVALID_CHANNEL_RECIPIENT");
+        // require(recipient == markets[marketId].owner, "INVALID_CHANNEL_RECIPIENT");
+
+        // change recipient to market maker, since it will send tokens to provider
+        require(recipient == markets[marketId].maker, "INVALID_CHANNEL_RECIPIENT");
 
         // must provide a valid off-chain channel delegate address
         require(delegate != address(0), "INVALID_CHANNEL_DELEGATE");
