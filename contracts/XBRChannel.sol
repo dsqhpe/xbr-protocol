@@ -308,7 +308,10 @@ contract XBRChannel {
         uint256 refund = balance_;
 
         // the fee to the xbr network is 1% of the earned amount
-        uint256 fee = earned / 100;
+        uint256 fee = 0;
+        if ctype == ChannelType.PAYING {
+            fee = earned / 100;
+        }
 
         // the amount paid out to the recipient
         uint256 payout = earned - fee;
