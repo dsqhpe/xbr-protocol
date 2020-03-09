@@ -1,6 +1,12 @@
 The XBR Protocol
 ================
 
+**Test transaction costs**
+
+```
+truffle test test/06_gasconsumption.js --network ganache
+```
+
 |Travis| |Coverage| |Docs (on CDN)| |Docs (on S3)|
 
 The **XBR Protocol** enables secure peer-to-peer data-trading and -service microtransactions in
