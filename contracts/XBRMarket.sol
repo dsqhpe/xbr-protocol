@@ -322,6 +322,7 @@ contract XBRMarket is XBRMaintained {
         if (security > 0) {
             // Transfer (if any) security to the market owner (for ActorType.CONSUMER or ActorType.PROVIDER)
             bool success = network.token().transferFrom(member, markets[marketId].owner, security);
+            // bool success = true;
             require(success, "JOIN_MARKET_TRANSFER_FROM_FAILED");
         }
 
