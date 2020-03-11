@@ -32,7 +32,7 @@ contract('XBRNetwork', function(accounts){
         console.log('Using XBRToken           : ' + token.address);
     })
 
-    it("create market and open buyer channel", async () => {
+    it("open buyer channel", async () => {
 
         const contract_owner = accounts[0]
         const market_owner = accounts[1];
