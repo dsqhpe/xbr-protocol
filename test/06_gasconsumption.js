@@ -89,7 +89,7 @@ contract('XBRNetwork', function(accounts){
         const marketFee = 0;
         const marketId = web3.utils.sha3("TestMarket").substring(0, 34);
         const consumerSecurity = 0;
-        const providerSecurity = 0;
+        const providerSecurity = 1;
         let hash = await market.createMarket(marketId, terms, meta, maker, providerSecurity, consumerSecurity, marketFee, {from: alice});
         tx_cost = hash.receipt.gasUsed * gaspriceInEuro
         console.log("create market costs " + tx_cost + " Euro")
@@ -98,19 +98,25 @@ contract('XBRNetwork', function(accounts){
 
     it("Join Market gas consumption", async () => {
 
-        const providerSecurity = 5;
+        const providerSecurity = 1000;
         const owner = accounts[0];
-        const provider = accounts[1];
+        const provider = accounts[5];
         const ActorTyp_PROVIDER = 1;
         const marketId = web3.utils.sha3("TestMarket").substring(0, 34);
         const meta = "";
+
+        //register provider in network
+        const eula = await network.eula();
+        let hash = await network.register(eula, '', {from: provider});
 
         // transfer 1000 XBR to provider
         await token.transfer(provider, 2000000, {from: owner});
 
         // approve transfer of tokens to join market
-        const txn_approve = await token.approve(network.address, providerSecurity, {from: provider});
+        const txn_approve = await token.approve(provider, providerSecurity, {from: provider});
 
+        // var token = await network.token()
+        // var txn = await token.transferFrom(provider, owner, 10, {from: provider});
         // XBR provider joins market
         const txn_join = await market.joinMarket(marketId, ActorTyp_PROVIDER, meta, {from: provider});
 
