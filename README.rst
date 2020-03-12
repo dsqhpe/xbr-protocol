@@ -3,12 +3,12 @@ The XBR Protocol
 
 **Test transaction costs**
 
-``
+```
 truffle test test/06_gasconsumption.js --network ganache
-``
+```
 Output:
 
-``
+```
 current gasprice is: 0.00002505 Euro
 Using XBRNetwork         : 0x4d3cF689B9D8DC1Ea2F8B244D53DCd2eDfefeB57
 Using XBRToken           : 0xcE742975f2cAb3F63e7Cc3a2d1969F009DC20deD
@@ -68,7 +68,7 @@ Open Seller Channel costs 30.477884099999997 Euro
      AssertionError: Open Seller Channel to expensive -> 30.477884099999997 Euro
       at Context.it (test/06_gasconsumption.js:143:9)
       at process._tickCallback (internal/process/next_tick.js:68:7)
-``
+```
 
 
 |Travis| |Coverage| |Docs (on CDN)| |Docs (on S3)|
