@@ -113,31 +113,31 @@ contract('XBRNetwork', function(accounts){
         sellerChannel_gasConsumptio = await market.openPayingChannel(marketId, seller, seller_delegate, 10, 666000, {from: market_maker})
     })
 
-    it("Registration costs:", () => {
+    it("Actor Buyer/Seller/Operator: Registration costs:", () => {
         tx_cost = registration_gasConsumptio.receipt.gasUsed * gaspriceInEuro
         console.log("register costs are: " + tx_cost + " Euro")
         assert(tx_cost < 0.16, "registration to expensive -> " + tx_cost + " Euro")
     })
 
-    it("Create Market costs:", () => {
+    it("Actor Operator: Create Market costs:", () => {
         tx_cost = createMarket_gasConsumptio.receipt.gasUsed * gaspriceInEuro
         console.log("create market costs are: " + tx_cost + " Euro")
         assert(tx_cost < 0.37, "create market to expensive -> " + tx_cost + " Euro")
     })
 
-    it("Join Market costs:", () => {
+    it("Actor Buyer/Seller: Join Market costs:", () => {
         tx_cost = joinMarket_gasConsumptio.receipt.gasUsed * gaspriceInEuro
         console.log("join market costs: " + tx_cost + " Euro")
         assert(tx_cost < 0.38, "join market to expensive -> " + tx_cost + " Euro")
     })
 
-    it("Open Buyer Channel costs:", () => {
+    it("Actor Buyer: Open Buyer Channel costs:", () => {
         tx_cost = buyerChannel_gasConsumptio.receipt.gasUsed * gaspriceInEuro
         console.log("open market costs: " + tx_cost + " Euro")
         assert(tx_cost < 0.38, "join market to expensive -> " + tx_cost + " Euro")
     })
 
-    it("Open Seller Channel costs: ", () => {
+    it("Actor Seller: Open Seller Channel costs: ", () => {
         tx_cost = sellerChannel_gasConsumptio.receipt.gasUsed * gaspriceInEuro
         console.log("Open Seller Channel costs " + tx_cost + " Euro")
         assert(tx_cost < 0.38, "Open Seller Channel to expensive -> " + tx_cost + " Euro")
