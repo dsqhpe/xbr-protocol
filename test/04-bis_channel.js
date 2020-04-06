@@ -11,7 +11,16 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-const web3 = require("web3");
+/*
+ * XBRChannel has been modified to not check signatures
+ * in open and close channels.
+ */
+
+const Web3 = require("web3");
+if (typeof web3 !== 'undefined') {
+    web3 = new Web3(web3.currentProvider);
+}
+
 const utils = require("./utils.js");
 const ethUtil = require('ethereumjs-util');
 
@@ -271,7 +280,7 @@ contract('XBRNetwork', accounts => {
         const balanceConsumerBefore = await coin.balanceOf(consumer);
         // balance of beneficiary of transfer in openChannel
 
-        const blockNumber = 0;//await web3.eth.getBlockNumber();
+        const blockNumber = await web3.eth.getBlockNumber();
         const channelId = utils.sha3("ChannelPaymentTestOpen").substring(0, 34);
         await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelId,
             consumer, consumerDelegate, maker, operator, paymentChannelAmount, eth_util.toBuffer("0xdeadbeef"),
@@ -302,7 +311,7 @@ contract('XBRNetwork', accounts => {
         const balanceProviderBefore = await coin.balanceOf(provider);
         // balance of beneficiary of transfer in openChannel
 
-        const blockNumber = 0;//await web3.eth.getBlockNumber();
+        const blockNumber = await web3.eth.getBlockNumber();
         const channelId = utils.sha3("ChannelPayingTestOpen").substring(0, 34);
         await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId,
            operator, providerDelegate, maker, provider, payingChannelAmount, eth_util.toBuffer("0xcafebabe"),
@@ -330,7 +339,7 @@ contract('XBRNetwork', accounts => {
 
         // Open the channel to close
         await coin.transfer(consumer, paymentChannelAmount, {from: account0, gasLimit: gasLimit});
-        const blockNumber = 0;//await web3.eth.getBlockNumber();
+        const blockNumber = await web3.eth.getBlockNumber();
         await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelId,
            consumer, consumerDelegate, maker, operator, paymentChannelAmount, eth_util.toBuffer("0xdeadbeef"),
            {from: maker, gasLimit: gasLimit});
@@ -381,7 +390,7 @@ contract('XBRNetwork', accounts => {
 
         // Open the channel to close
         await coin.transfer(operator, payingChannelAmount, {from: account0, gasLimit: gasLimit});
-        const blockNumber = 0;//await web3.eth.getBlockNumber();
+        const blockNumber = await web3.eth.getBlockNumber();
         await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId,
            operator, providerDelegate, maker, provider, payingChannelAmount, eth_util.toBuffer("0xcafebabe"),
            {from: maker, gasLimit: gasLimit});
@@ -439,7 +448,7 @@ contract('XBRNetwork', accounts => {
         // Open channels
         const amount = '0';
         const refund_ = '0';
-        const blockNumber = 0;//await web3.eth.getBlockNumber();
+        const blockNumber = await web3.eth.getBlockNumber();
         await coin.transfer(consumer, amount, {from: account0, gasLimit: gasLimit});
         await coin.transfer(operator, amount, {from: account0, gasLimit: gasLimit});
         await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment,
@@ -486,7 +495,7 @@ contract('XBRNetwork', accounts => {
         // Open channels
         const amount = '0';
         const refund_ = '0';
-        const blockNumber = 0;//await web3.eth.getBlockNumber();
+        const blockNumber = await web3.eth.getBlockNumber();
         await coin.transfer(consumer, amount, {from: account0, gasLimit: gasLimit});
         await coin.transfer(operator, amount, {from: account0, gasLimit: gasLimit});
         await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment,
