@@ -12,9 +12,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /*
- * XBRChannel has been modified to not check signatures
- * in open and close channels.
+ * Use ganache : 'ganache-cli -p 1545 -i 5777 -l 10000000 --account_keys_path accountsGanache.json'
  */
+const accountsGanache = require("../accountsGanache.json");
+const private_keys = accountsGanache.private_keys;
+
 
 const Web3 = require("web3");
 if (typeof web3 !== 'undefined') {
@@ -43,43 +45,89 @@ var eth_accounts = require("web3-eth-accounts");
 var eth_util = require("ethereumjs-util");
 
 
-const DomainData = {
+// To generate signatures to open and close channels
+const DomainDataOpen = {
     types: {
         EIP712Domain: [
             { name: 'name', type: 'string' },
-            { name: 'version', type: 'string' },
-            { name: 'chainId', type: 'uint256' },
-            { name: 'verifyingContract', type: 'address' },
+            { name: 'version', type: 'string' }
         ],
-        ChannelClose: [
-            {'name': 'channel_adr', 'type': 'address'},
-            {'name': 'channel_seq', 'type': 'uint32'},
-            {'name': 'balance', 'type': 'uint256'},
-            {'name': 'is_final', 'type': 'bool'},
+        EIP712ChannelOpen: [
+            { 'name': 'chainId', 'type': 'uint256' },
+            { 'name': 'verifyingContract', 'type': 'address' },
+            { 'name': 'ctype', 'type': 'uint8' },
+            { 'name': 'openedAt', 'type': 'uint256' },
+            { 'name': 'marketId', 'type': 'bytes16' },
+            { 'name': 'channelId', 'type': 'bytes16' },
+            { 'name': 'actor', 'type': 'address' },
+            { 'name': 'delegate', 'type': 'address' },
+            { 'name': 'marketmaker', 'type': 'address' },
+            { 'name': 'recipient', 'type': 'address' },
+            { 'name': 'amount', 'type': 'uint256' },
         ]
     },
-    primaryType: 'ChannelClose',
+    primaryType: 'EIP712ChannelOpen',
     domain: {
         name: 'XBR',
         version: '1',
-        chainId: 1,
-        verifyingContract: '0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B',
     },
     message: null,
 };
 
+const DomainDataClose = {
+    types: {
+        EIP712Domain: [
+            { name: 'name', type: 'string' },
+            { name: 'version', type: 'string' }
+        ],
+        EIP712ChannelClose: [
+            { 'name': 'chainId', 'type': 'uint256' },
+            { 'name': 'verifyingContract', 'type': 'address' },
+            { 'name': 'marketId', 'type': 'bytes16' },
+            { 'name': 'channelId', 'type': 'bytes16' },
+            { 'name': 'channelSeq', 'type': 'uint32' },
+            { 'name': 'balance', 'type': 'uint256' },
+            { 'name': 'isFinal', 'type': 'bool' },
+        ]
+    },
+    primaryType: 'EIP712ChannelClose',
+    domain: {
+        name: 'XBR',
+        version: '1',
+    },
+    message: null,
+};
+/*
+function createSigOpen(message_, account) {
+    DomainDataOpen['message'] = message_;
+    // Return Promise
+    return web3.eth.sign(DomainDataOpen, account);
+}
 
-
-function create_sig(key_, message_) {
-
-    DomainData['message'] = message_;
-
+function createSigClose(message_, account) {
+    DomainDataClose['message'] = message_;
+    // Return Promise
+    return web3.eth.sign(DomainDataClose, account);
+}
+*/
+function createSigOpen_(message_, key_) {
+    DomainDataOpen['message'] = message_;
     const key = eth_util.toBuffer(key_);
-
-    const sig = eth_sig_utils.signTypedData(key, {data: DomainData})
-
+    console.log(key);
+    const sig = eth_sig_utils.signTypedData(key, { data: DomainDataOpen })
     return eth_util.toBuffer(sig);
 }
+
+function createSigClose_(message_, key_) {
+    DomainDataClose['message'] = message_;
+    const key = eth_util.toBuffer(key_);
+    console.log(key);
+    const sig = eth_sig_utils.signTypedData(key, { data: DomainDataClose })
+    return eth_util.toBuffer(sig);
+}
+
+var chainId;
+
 
 
 contract('XBRNetwork', accounts => {
@@ -135,9 +183,9 @@ contract('XBRNetwork', accounts => {
     const NodeType_EDGE = 3;
 
     // Securitues
-    const providerSecurity = 100 * Math.pow(10,18);
+    const providerSecurity = 100 * Math.pow(10, 18);
     const providerSecurity_ = '0x' + providerSecurity.toString(16);
-    const consumerSecurity =  20 * Math.pow(10,18);
+    const consumerSecurity = 20 * Math.pow(10, 18);
     const consumerSecurity_ = '0x' + consumerSecurity.toString(16);
 
     // 5% market fee
@@ -150,29 +198,36 @@ contract('XBRNetwork', accounts => {
     var marketId;
 
     // Amounts for channels and purchases
-    const payingChannelAmount = '0x' + (115 * Math.pow(10,18)).toString(16);
+    const payingChannelAmount = '0x' + (115 * Math.pow(10, 18)).toString(16);
     // const payingChannelAmount_ = '0x' + payingChannelAmount.toString(16);
-    const paymentChannelAmount = '0x' + (110 * Math.pow(10,18)).toString(16);
+    const paymentChannelAmount = '0x' + (110 * Math.pow(10, 18)).toString(16);
     // const paymentChannelAmount_ = '0x' + paymentChannelAmount.toString(16);
-    const amountSelled = '0x' + (100 * Math.pow(10,18)).toString(16);
+    const amountSelled = '0x' + (100 * Math.pow(10, 18)).toString(16);
     // const amountSelled_ = '0x' + amountSelled.toString(16);
-    const amountBuyed = '0x' + (100 * Math.pow(10,18)).toString(16)
+    const amountBuyed = '0x' + (100 * Math.pow(10, 18)).toString(16)
     // const amountBuyed_ = '0x' + amountBuyed.toString(16)
 
-    //
-    // test accounts setup
-    //
+
     const account0 = accounts[0];
     const operator = accounts[1]; // market owner
+    const operatorKey = '0x' + private_keys[operator.toLowerCase()];
     const maker = accounts[2];
+    const makerKey = '0x' + private_keys[maker.toLowerCase()];
     const provider = accounts[3];
+    const providerKey = '0x' + private_keys[provider.toLowerCase()];
     const providerDelegate = accounts[4];
+    const providerDelegateKey = '0x' + private_keys[providerDelegate.toLowerCase()];
     const consumer = accounts[5];
+    const consumerKey = '0x' + private_keys[consumer.toLowerCase()];
     const consumerDelegate = accounts[6];
+    const consumerDelegateKey = '0x' + private_keys[consumerDelegate.toLowerCase()];
     const provCons = accounts[7];
     const provConsDelegate = accounts[8];
 
-    beforeEach('setup contract for each test', async function () {
+
+    beforeEach('setup contract for each test', async function() {
+        chainId = await web3.eth.net.getId()
+
         token = await XBRToken.deployed();
         network = await XBRNetwork.deployed();
         market = await XBRMarket.deployed();
@@ -192,25 +247,25 @@ contract('XBRNetwork', accounts => {
         const _operator = await network.members(operator);
         const _operator_level = _operator.level.toNumber();
         if (_operator_level == MemberLevel_NULL) {
-            await network.registerMember(eula, profile, {from: operator, gasLimit: gasLimit});
+            await network.registerMember(eula, profile, { from: operator, gasLimit: gasLimit });
         }
 
         const _provider = await network.members(provider);
         const _provider_level = _provider.level.toNumber();
         if (_provider_level == MemberLevel_NULL) {
-            await network.registerMember(eula, profile, {from: provider, gasLimit: gasLimit});
+            await network.registerMember(eula, profile, { from: provider, gasLimit: gasLimit });
         }
 
         const _consumer = await network.members(consumer);
         const _consumer_level = _consumer.level.toNumber();
         if (_consumer_level == MemberLevel_NULL) {
-            await network.registerMember(eula, profile, {from: consumer, gasLimit: gasLimit});
+            await network.registerMember(eula, profile, { from: consumer, gasLimit: gasLimit });
         }
 
         const _provCons = await network.members(provCons);
         const _provCons_level = _provCons.level.toNumber();
         if (_provCons_level == MemberLevel_NULL) {
-            await network.registerMember(eula, profile, {from: provCons, gasLimit: gasLimit});
+            await network.registerMember(eula, profile, { from: provCons, gasLimit: gasLimit });
         }
 
         marketId = utils.sha3("MyMarket1").substring(0, 34);
@@ -221,7 +276,7 @@ contract('XBRNetwork', accounts => {
             const terms = "";
             const meta = "";
 
-            await market.createMarket(marketId, coin.address, terms, meta, maker, providerSecurity_, consumerSecurity_, marketFee, {from: operator, gasLimit: gasLimit});
+            await market.createMarket(marketId, coin.address, terms, meta, maker, providerSecurity_, consumerSecurity_, marketFee, { from: operator, gasLimit: gasLimit });
 
 
             if (providerSecurity) {
@@ -229,14 +284,14 @@ contract('XBRNetwork', accounts => {
                 // const _balance_network_before = await token.balanceOf(network.address);
 
                 // transfer security to provider
-                await coin.transfer(provider, providerSecurity_, {from: account0, gasLimit: gasLimit});
+                await coin.transfer(provider, providerSecurity_, { from: account0, gasLimit: gasLimit });
 
                 // approve transfer of tokens to join market
-                await coin.approve(market.address, providerSecurity_, {from: provider, gasLimit: gasLimit});
+                await coin.approve(market.address, providerSecurity_, { from: provider, gasLimit: gasLimit });
             }
 
             // XBR provider joins market
-            await market.joinMarket(marketId, ActorType_PROVIDER, meta, {from: provider, gasLimit: gasLimit});
+            await market.joinMarket(marketId, ActorType_PROVIDER, meta, { from: provider, gasLimit: gasLimit });
 
 
             if (consumerSecurity) {
@@ -244,14 +299,14 @@ contract('XBRNetwork', accounts => {
                 // const _balance_network_before = await token.balanceOf(network.address);
 
                 // transfer security to consumer
-                await coin.transfer(consumer, consumerSecurity_, {from: account0, gasLimit: gasLimit});
+                await coin.transfer(consumer, consumerSecurity_, { from: account0, gasLimit: gasLimit });
 
                 // approve transfer of tokens to join market
-                await coin.approve(market.address, consumerSecurity_, {from: consumer, gasLimit: gasLimit});
+                await coin.approve(market.address, consumerSecurity_, { from: consumer, gasLimit: gasLimit });
             }
 
             // XBR consumer joins market
-            await market.joinMarket(marketId, ActorType_CONSUMER, meta, {from: consumer, gasLimit: gasLimit});
+            await market.joinMarket(marketId, ActorType_CONSUMER, meta, { from: consumer, gasLimit: gasLimit });
 
 
             if (providerSecurity || consumerSecurity) {
@@ -260,20 +315,20 @@ contract('XBRNetwork', accounts => {
 
                 provConsSecurity_ = '0x' + (providerSecurity + consumerSecurity).toString(16);
                 // transfer security to provider_consumer
-                await coin.transfer(provCons, provConsSecurity_, {from: account0, gasLimit: gasLimit});
+                await coin.transfer(provCons, provConsSecurity_, { from: account0, gasLimit: gasLimit });
 
                 // approve transfer of tokens to join market
-                await coin.approve(market.address, provConsSecurity_, {from: provCons, gasLimit: gasLimit});
+                await coin.approve(market.address, provConsSecurity_, { from: provCons, gasLimit: gasLimit });
             }
 
             // XBR provider_consumer joins market
-            await market.joinMarket(marketId, ActorType_PROVIDER_CONSUMER, meta, {from: provCons, gasLimit: gasLimit});
+            await market.joinMarket(marketId, ActorType_PROVIDER_CONSUMER, meta, { from: provCons, gasLimit: gasLimit });
         }
     });
 
 
     it('XBRChannel.openChannel() : channel opened by maker for consumer', async () => {
-        await coin.transfer(consumer, paymentChannelAmount, {from: account0, gasLimit: gasLimit});
+        await coin.transfer(consumer, paymentChannelAmount, { from: account0, gasLimit: gasLimit });
 
         const balanceOperatorBefore = await coin.balanceOf(operator);
         const balanceMakerBefore = await coin.balanceOf(maker);
@@ -282,9 +337,25 @@ contract('XBRNetwork', accounts => {
 
         const blockNumber = await web3.eth.getBlockNumber();
         const channelId = utils.sha3("ChannelPaymentTestOpen").substring(0, 34);
+
+        // Generate consumer's signature
+        const channelOpen = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'ctype': ChannelType_PAYMENT,
+            'openedAt': blockNumber,
+            'marketId': marketId,
+            'channelId': channelId,
+            'actor': consumer,
+            'delegate': consumerDelegate,
+            'marketmaker': maker,
+            'recipient': operator,
+            'amount': paymentChannelAmount
+        };
+        const signConsumer = createSigOpen_(channelOpen, consumerKey);
+
         await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelId,
-            consumer, consumerDelegate, maker, operator, paymentChannelAmount, eth_util.toBuffer("0xdeadbeef"),
-            {from: maker, gasLimit: gasLimit});
+            consumer, consumerDelegate, maker, operator, paymentChannelAmount, signConsumer, { from: maker, gasLimit: gasLimit });
 
         const balanceOperatorAfter = await coin.balanceOf(operator);
         const balanceMakerAfter = await coin.balanceOf(maker);
@@ -304,7 +375,7 @@ contract('XBRNetwork', accounts => {
 
 
     it('XBRChannel.openChannel() : channel opened by maker for provider', async () => {
-        await coin.transfer(operator, payingChannelAmount, {from: account0, gasLimit: gasLimit});
+        await coin.transfer(operator, payingChannelAmount, { from: account0, gasLimit: gasLimit });
 
         const balanceOperatorBefore = await coin.balanceOf(operator);
         const balanceMakerBefore = await coin.balanceOf(maker);
@@ -313,9 +384,24 @@ contract('XBRNetwork', accounts => {
 
         const blockNumber = await web3.eth.getBlockNumber();
         const channelId = utils.sha3("ChannelPayingTestOpen").substring(0, 34);
-        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId,
-           operator, providerDelegate, maker, provider, payingChannelAmount, eth_util.toBuffer("0xcafebabe"),
-           {from: maker, gasLimit: gasLimit});
+
+        // Generate operator's signature
+        const channelOpen = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'ctype': ChannelType_PAYING,
+            'openedAt': blockNumber,
+            'marketId': marketId,
+            'channelId': channelId,
+            'actor': operator,
+            'delegate': providerDelegate,
+            'marketmaker': maker,
+            'recipient': provider,
+            'amount': payingChannelAmount
+        };
+        const signOperator = createSigOpen_(channelOpen, operatorKey);
+
+        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId, operator, providerDelegate, maker, provider, payingChannelAmount, signOperator, { from: maker, gasLimit: gasLimit });
 
         const balanceOperatorAfter = await coin.balanceOf(operator);
         const balanceMakerAfter = await coin.balanceOf(maker);
@@ -338,14 +424,27 @@ contract('XBRNetwork', accounts => {
         const channelId = utils.sha3("ChannelPaymentTestClose").substring(0, 34);
 
         // Open the channel to close
-        await coin.transfer(consumer, paymentChannelAmount, {from: account0, gasLimit: gasLimit});
+        await coin.transfer(consumer, paymentChannelAmount, { from: account0, gasLimit: gasLimit });
         const blockNumber = await web3.eth.getBlockNumber();
-        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelId,
-           consumer, consumerDelegate, maker, operator, paymentChannelAmount, eth_util.toBuffer("0xdeadbeef"),
-           {from: maker, gasLimit: gasLimit});
+        // Generate consumer's signature
+        const channelOpen = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'ctype': ChannelType_PAYMENT,
+            'openedAt': blockNumber,
+            'marketId': marketId,
+            'channelId': channelId,
+            'actor': consumer,
+            'delegate': consumerDelegate,
+            'marketmaker': maker,
+            'recipient': operator,
+            'amount': paymentChannelAmount
+        };
+        const signConsumer = createSigOpen_(channelOpen, consumerKey);
+        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelId, consumer, consumerDelegate, maker, operator, paymentChannelAmount, signConsumer, { from: maker, gasLimit: gasLimit });
 
         // To remove when implementation is complete
-        await coin.transfer(channel.address, paymentChannelAmount, {from: account0, gasLimit: gasLimit});
+        await coin.transfer(channel.address, paymentChannelAmount, { from: account0, gasLimit: gasLimit });
 
         const balanceOperatorBefore = await coin.balanceOf(operator);
         const balanceMakerBefore = await coin.balanceOf(maker);
@@ -356,8 +455,21 @@ contract('XBRNetwork', accounts => {
 
         const refund = paymentChannelAmount - amountBuyed;
         const refund_ = '0x' + refund.toString(16);
-        await channel.closeChannel(channelId, 1, refund_, true, eth_util.toBuffer("0xbaad"), eth_util.toBuffer("0xbeef"),
-           {from: maker, gasLimit: gasLimit});
+
+        // Generate signatures
+        const channelClose = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'marketId': marketId,
+            'channelId': channelId,
+            'channelSeq': 1,
+            'balance': refund_,
+            'isFinal': true
+        };
+        const consDelSign = createSigClose_(channelClose, consumerDelegateKey);
+        const makerSign = createSigClose_(channelClose, makerKey);
+
+        await channel.closeChannel(channelId, 1, refund_, true, consDelSign, makerSign, { from: maker, gasLimit: gasLimit });
 
         const balanceOperatorAfter = await coin.balanceOf(operator);
         const balanceMakerAfter = await coin.balanceOf(maker);
@@ -389,14 +501,27 @@ contract('XBRNetwork', accounts => {
         const channelId = utils.sha3("ChannelPayingTestClose").substring(0, 34);
 
         // Open the channel to close
-        await coin.transfer(operator, payingChannelAmount, {from: account0, gasLimit: gasLimit});
+        await coin.transfer(operator, payingChannelAmount, { from: account0, gasLimit: gasLimit });
         const blockNumber = await web3.eth.getBlockNumber();
-        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId,
-           operator, providerDelegate, maker, provider, payingChannelAmount, eth_util.toBuffer("0xcafebabe"),
-           {from: maker, gasLimit: gasLimit});
+        // Generate operator's signature
+        const channelOpen = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'ctype': ChannelType_PAYING,
+            'openedAt': blockNumber,
+            'marketId': marketId,
+            'channelId': channelId,
+            'actor': operator,
+            'delegate': providerDelegate,
+            'marketmaker': maker,
+            'recipient': provider,
+            'amount': payingChannelAmount
+        };
+        const signOperator = createSigOpen_(channelOpen, operatorKey);
+        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId, operator, providerDelegate, maker, provider, payingChannelAmount, signOperator, { from: maker, gasLimit: gasLimit });
 
         // To remove when implementation is complete
-        await coin.transfer(channel.address, payingChannelAmount, {from: account0, gasLimit: gasLimit});
+        await coin.transfer(channel.address, payingChannelAmount, { from: account0, gasLimit: gasLimit });
 
         const balanceOperatorBefore = await coin.balanceOf(operator);
         const balanceMakerBefore = await coin.balanceOf(maker);
@@ -407,8 +532,21 @@ contract('XBRNetwork', accounts => {
 
         const refund = payingChannelAmount - amountSelled;
         const refund_ = '0x' + refund.toString(16);
-        await channel.closeChannel(channelId, 1, refund_, true, eth_util.toBuffer("0xbaad"), eth_util.toBuffer("0xcafe"),
-           {from: maker, gasLimit: gasLimit});
+
+        // Generate signatures
+        const channelClose = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'marketId': marketId,
+            'channelId': channelId,
+            'channelSeq': 1,
+            'balance': refund_,
+            'isFinal': true
+        };
+        const provDelSign = createSigClose_(channelClose, providerDelegateKey);
+        const makerSign = createSigClose_(channelClose, makerKey);
+
+        await channel.closeChannel(channelId, 1, refund_, true, provDelSign, makerSign, { from: maker, gasLimit: gasLimit });
 
         const balanceOperatorAfter = await coin.balanceOf(operator);
         const balanceMakerAfter = await coin.balanceOf(maker);
@@ -446,21 +584,47 @@ contract('XBRNetwork', accounts => {
         assert.ok(!allPayingChannels.includes(channelIdPaying), "Channel paying found but not opened yet.");
 
         // Open channels
-        const amount = '0';
-        const refund_ = '0';
+        const amount = '0x0';
+        const refund_ = '0x0';
         const blockNumber = await web3.eth.getBlockNumber();
-        await coin.transfer(consumer, amount, {from: account0, gasLimit: gasLimit});
-        await coin.transfer(operator, amount, {from: account0, gasLimit: gasLimit});
-        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment,
-            consumer, consumerDelegate, maker, operator, paymentChannelAmount, eth_util.toBuffer("0xdeadbeef"),
-            {from: maker, gasLimit: gasLimit});
-        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelIdPaying,
-            operator, providerDelegate, maker, provider, payingChannelAmount, eth_util.toBuffer("0xcafebabe"),
-            {from: maker, gasLimit: gasLimit});
+        await coin.transfer(consumer, amount, { from: account0, gasLimit: gasLimit });
+        await coin.transfer(operator, amount, { from: account0, gasLimit: gasLimit });
+        // Generate consumer's signature
+        const channelOpenPayment = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'ctype': ChannelType_PAYMENT,
+            'openedAt': blockNumber,
+            'marketId': marketId,
+            'channelId': channelIdPayment,
+            'actor': consumer,
+            'delegate': consumerDelegate,
+            'marketmaker': maker,
+            'recipient': operator,
+            'amount': paymentChannelAmount
+        };
+        const signConsumer = createSigOpen_(channelOpenPayment, consumerKey);
+        // Generate operator's signature
+        const channelOpenPaying = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'ctype': ChannelType_PAYING,
+            'openedAt': blockNumber,
+            'marketId': marketId,
+            'channelId': channelIdPaying,
+            'actor': operator,
+            'delegate': providerDelegate,
+            'marketmaker': maker,
+            'recipient': provider,
+            'amount': payingChannelAmount
+        };
+        const signOperator = createSigOpen_(channelOpenPaying, operatorKey);
+        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment, consumer, consumerDelegate, maker, operator, paymentChannelAmount, signConsumer, { from: maker, gasLimit: gasLimit });
+        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelIdPaying, operator, providerDelegate, maker, provider, payingChannelAmount, signOperator, { from: maker, gasLimit: gasLimit });
 
         // To remove when implementation is complete
-        await coin.transfer(channel.address, amount, {from: account0, gasLimit: gasLimit});
-        await coin.transfer(channel.address, amount, {from: account0, gasLimit: gasLimit});
+        await coin.transfer(channel.address, amount, { from: account0, gasLimit: gasLimit });
+        await coin.transfer(channel.address, amount, { from: account0, gasLimit: gasLimit });
 
         // Open and close channel don't update Actor.channels -> will fail
         allPaymentChannels = await market.getAllPaymentChannels(marketId, consumer);
@@ -468,16 +632,38 @@ contract('XBRNetwork', accounts => {
         assert.ok(allPaymentChannels.includes(channelIdPayment), "Channel payment not found.");
         assert.ok(allPayingChannels.includes(channelIdPaying), "Channel paying not found.");
 
+        // Generate signatures
+        const channelClosePayment = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'marketId': marketId,
+            'channelId': channelIdPayment,
+            'channelSeq': 1,
+            'balance': refund_,
+            'isFinal': true
+        };
+        const channelClosePaying = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'marketId': marketId,
+            'channelId': channelIdPaying,
+            'channelSeq': 1,
+            'balance': refund_,
+            'isFinal': true
+        };
+        const consDelSign = createSigClose_(channelClosePayment, consumerDelegateKey);
+        const makerPaymentSign = createSigClose_(channelClosePayment, makerKey);
+        const provDelSign = createSigClose_(channelClosePaying, providerDelegateKey);
+        const makerPayingSign = createSigClose_(channelClosePaying, makerKey);
+
         // Close channels
-        await channel.closeChannel(channelIdPaying, 1, refund_, true, eth_util.toBuffer("0xbaad"), eth_util.toBuffer("0xcafe"),
-            {from: maker, gasLimit: gasLimit});
-        await channel.closeChannel(channelIdPayment, 1, refund_, true, eth_util.toBuffer("0xbaad"), eth_util.toBuffer("0xbeef"),
-            {from: maker, gasLimit: gasLimit});
+        await channel.closeChannel(channelIdPaying, 1, refund_, true, consDelSign, makerPaymentSign, { from: maker, gasLimit: gasLimit });
+        await channel.closeChannel(channelIdPayment, 1, refund_, true, provDelSign, makerPayingSign, { from: maker, gasLimit: gasLimit });
 
         // Open and close channel don't update Actor.channels -> will fail
         allPaymentChannels = await market.getAllPaymentChannels(marketId, consumer);
         allPayingChannels = await market.getAllPayingChannels(marketId, provider);
-        // Don't know it channel will be remove of the list
+        // Don't know if channel will be remove of the list
         // assert.ok(allPaymentChannels.includes(channelIdPayment), "Channel payment not found.");
         // assert.ok(allPayingChannels.includes(channelIdPaying), "Channel paying not found.");
     });
@@ -496,18 +682,44 @@ contract('XBRNetwork', accounts => {
         const amount = '0';
         const refund_ = '0';
         const blockNumber = await web3.eth.getBlockNumber();
-        await coin.transfer(consumer, amount, {from: account0, gasLimit: gasLimit});
-        await coin.transfer(operator, amount, {from: account0, gasLimit: gasLimit});
-        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment,
-            consumer, consumerDelegate, maker, operator, paymentChannelAmount, eth_util.toBuffer("0xdeadbeef"),
-            {from: maker, gasLimit: gasLimit});
-        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelIdPaying,
-            operator, providerDelegate, maker, provider, payingChannelAmount, eth_util.toBuffer("0xcafebabe"),
-            {from: maker, gasLimit: gasLimit});
+        await coin.transfer(consumer, amount, { from: account0, gasLimit: gasLimit });
+        await coin.transfer(operator, amount, { from: account0, gasLimit: gasLimit });
+        // Generate consumer's signature
+        const channelOpenPayment = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'ctype': ChannelType_PAYMENT,
+            'openedAt': blockNumber,
+            'marketId': marketId,
+            'channelId': channelIdPayment,
+            'actor': consumer,
+            'delegate': consumerDelegate,
+            'marketmaker': maker,
+            'recipient': operator,
+            'amount': paymentChannelAmount
+        };
+        const signConsumer = createSigOpen_(channelOpenPayment, consumerKey);
+        // Generate operator's signature
+        const channelOpenPaying = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'ctype': ChannelType_PAYING,
+            'openedAt': blockNumber,
+            'marketId': marketId,
+            'channelId': channelIdPaying,
+            'actor': operator,
+            'delegate': providerDelegate,
+            'marketmaker': maker,
+            'recipient': provider,
+            'amount': payingChannelAmount
+        };
+        const signOperator = createSigOpen_(channelOpenPaying, operatorKey);
+        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment, consumer, consumerDelegate, maker, operator, paymentChannelAmount, signConsumer, { from: maker, gasLimit: gasLimit });
+        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelIdPaying, operator, providerDelegate, maker, provider, payingChannelAmount, signOperator, { from: maker, gasLimit: gasLimit });
 
         // To remove when implementation is complete
-        await coin.transfer(channel.address, amount, {from: account0, gasLimit: gasLimit});
-        await coin.transfer(channel.address, amount, {from: account0, gasLimit: gasLimit});
+        await coin.transfer(channel.address, amount, { from: account0, gasLimit: gasLimit });
+        await coin.transfer(channel.address, amount, { from: account0, gasLimit: gasLimit });
 
         //Open and close channel don't update Market.currentPay*ChannelByDelegate[delegate] -> will fail
         currentPaymentChannel = await market.currentPaymentChannelByDelegate(marketId, consumerDelegate);
@@ -515,11 +727,33 @@ contract('XBRNetwork', accounts => {
         assert.equal(currentPaymentChannel, channelIdPayment, "Channel payment doesn't match.");
         assert.equal(currentPayingChannel, channelIdPaying, "Channel paying doesn't match.");
 
+        // Generate signatures
+        const channelClosePayment = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'marketId': marketId,
+            'channelId': channelIdPayment,
+            'channelSeq': 1,
+            'balance': refund_,
+            'isFinal': true
+        };
+        const channelClosePaying = {
+            'chainId': await network.verifyingChain(), //chainId,
+            'verifyingContract': await network.verifyingContract(),
+            'marketId': marketId,
+            'channelId': channelIdPaying,
+            'channelSeq': 1,
+            'balance': refund_,
+            'isFinal': true
+        };
+        const consDelSign = createSigClose_(channelClosePayment, consumerDelegateKey);
+        const makerPaymentSign = createSigClose_(channelClosePayment, makerKey);
+        const provDelSign = createSigClose_(channelClosePaying, providerDelegateKey);
+        const makerPayingSign = createSigClose_(channelClosePaying, makerKey);
+
         // Close channels
-        await channel.closeChannel(channelIdPaying, 1, refund_, true, eth_util.toBuffer("0xbaad"), eth_util.toBuffer("0xcafe"),
-            {from: maker, gasLimit: gasLimit});
-        await channel.closeChannel(channelIdPayment, 1, refund_, true, eth_util.toBuffer("0xbaad"), eth_util.toBuffer("0xbeef"),
-            {from: maker, gasLimit: gasLimit});
+        await channel.closeChannel(channelIdPayment, 1, refund_, true, consDelSign, makerPaymentSign, { from: maker, gasLimit: gasLimit });
+        await channel.closeChannel(channelIdPaying, 1, refund_, true, provDelSign, makerPayingSign, { from: maker, gasLimit: gasLimit });
 
         currentPaymentChannel = await market.currentPaymentChannelByDelegate(marketId, consumerDelegate);
         currentPayingChannel = await market.currentPayingChannelByDelegate(marketId, providerDelegate);
