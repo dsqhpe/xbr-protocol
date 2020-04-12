@@ -191,7 +191,7 @@ contract('XBRNetwork', accounts => {
     // 5% market fee
     // FIXME: how to write a large uint256 literal?
     // const marketFee = '' + Math.trunc(0.05 * 10**9 * 10**18);
-    const marketFee = 0;
+    const marketFee = 2; // 2%
     const organizationFee = 0.01;
     var organization;
 
@@ -333,7 +333,9 @@ contract('XBRNetwork', accounts => {
         const balanceOperatorBefore = await coin.balanceOf(operator);
         const balanceMakerBefore = await coin.balanceOf(maker);
         const balanceConsumerBefore = await coin.balanceOf(consumer);
-        // balance of beneficiary of transfer in openChannel
+        const balanceChannelBefore = await coin.balanceOf(channel.address);
+
+        await coin.approve(channel.address, paymentChannelAmount, { from: consumer, gasLimit: gasLimit });
 
         const blockNumber = await web3.eth.getBlockNumber();
         const channelId = utils.sha3("ChannelPaymentTestOpen").substring(0, 34);
@@ -360,27 +362,24 @@ contract('XBRNetwork', accounts => {
         const balanceOperatorAfter = await coin.balanceOf(operator);
         const balanceMakerAfter = await coin.balanceOf(maker);
         const balanceConsumerAfter = await coin.balanceOf(consumer);
-        // balance of beneficiary of transfer in openChannel
+        const balanceChannelAfter = await coin.balanceOf(channel.address);
 
         assert.equal('' + balanceMakerAfter, '' + balanceMakerBefore,
             "Maker's token balance should not change.");
         assert.equal('' + balanceOperatorAfter, '' + balanceOperatorBefore,
             "Operator's token balance should not change.");
-        // Not implemented -> will fail
-        assert.equal('' + balanceConsumerAfter, '' + (balanceConsumerBefore - paymentChannelAmount),
+        assert.equal('' + balanceConsumerAfter, '' + (Number(balanceConsumerBefore) - Number(paymentChannelAmount)),
             "Consumer's token balance doesn't match.");
-        // Not implemented
-        // Check balance of beneficiary of transfer in openChannel
+        assert.equal('' + balanceChannelAfter, '' + (Number(balanceChannelBefore) + Number(paymentChannelAmount)),
+            "Channel's token balance doesn't match.");
     });
 
 
-    it('XBRChannel.openChannel() : channel opened by maker for provider', async () => {
-        await coin.transfer(operator, payingChannelAmount, { from: account0, gasLimit: gasLimit });
-
+    it('XBRChannel.openChannel() : channel opened by provider', async () => {
         const balanceOperatorBefore = await coin.balanceOf(operator);
         const balanceMakerBefore = await coin.balanceOf(maker);
         const balanceProviderBefore = await coin.balanceOf(provider);
-        // balance of beneficiary of transfer in openChannel
+        const balanceChannelBefore = await coin.balanceOf(channel.address);
 
         const blockNumber = await web3.eth.getBlockNumber();
         const channelId = utils.sha3("ChannelPayingTestOpen").substring(0, 34);
@@ -393,30 +392,29 @@ contract('XBRNetwork', accounts => {
             'openedAt': blockNumber,
             'marketId': marketId,
             'channelId': channelId,
-            'actor': operator,
+            'actor': provider,
             'delegate': providerDelegate,
             'marketmaker': maker,
             'recipient': provider,
             'amount': payingChannelAmount
         };
-        const signOperator = createSigOpen_(channelOpen, operatorKey);
+        const signProvider = createSigOpen_(channelOpen, providerKey);
 
-        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId, operator, providerDelegate, maker, provider, payingChannelAmount, signOperator, { from: maker, gasLimit: gasLimit });
+        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId, provider, providerDelegate, maker, provider, payingChannelAmount, signProvider, { from: maker, gasLimit: gasLimit });
 
         const balanceOperatorAfter = await coin.balanceOf(operator);
         const balanceMakerAfter = await coin.balanceOf(maker);
         const balanceProviderAfter = await coin.balanceOf(provider);
-        // balance of beneficiary of transfer in openChannel
+        const balanceChannelAfter = await coin.balanceOf(channel.address);
 
         assert.equal('' + balanceMakerAfter, '' + balanceMakerBefore,
             "Maker's token balance should not change.");
         assert.equal('' + balanceProviderAfter, '' + balanceProviderBefore,
             "Provider's token balance should not change.");
-        // Not implemented -> will fail
-        assert.equal('' + balanceOperatorAfter, '' + (balanceOperatorBefore - payingChannelAmount),
-            "Operator's token balance doesn't match.");
-        // Not implemented
-        // Check balance of beneficiary of transfer in openChannel
+        assert.equal('' + balanceOperatorAfter, '' + balanceOperatorBefore,
+            "Operator's token balance should not change.");
+        assert.equal('' + balanceChannelAfter, '' + balanceChannelBefore,
+            "Channel's token balance should not change.");
     });
 
 
@@ -425,6 +423,7 @@ contract('XBRNetwork', accounts => {
 
         // Open the channel to close
         await coin.transfer(consumer, paymentChannelAmount, { from: account0, gasLimit: gasLimit });
+        await coin.approve(channel.address, paymentChannelAmount, { from: consumer, gasLimit: gasLimit });
         const blockNumber = await web3.eth.getBlockNumber();
         // Generate consumer's signature
         const channelOpen = {
@@ -443,15 +442,11 @@ contract('XBRNetwork', accounts => {
         const signConsumer = createSigOpen_(channelOpen, consumerKey);
         await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelId, consumer, consumerDelegate, maker, operator, paymentChannelAmount, signConsumer, { from: maker, gasLimit: gasLimit });
 
-        // To remove when implementation is complete
-        await coin.transfer(channel.address, paymentChannelAmount, { from: account0, gasLimit: gasLimit });
-
         const balanceOperatorBefore = await coin.balanceOf(operator);
         const balanceMakerBefore = await coin.balanceOf(maker);
         const balanceConsumerBefore = await coin.balanceOf(consumer);
         const balanceOrganizationBefore = await coin.balanceOf(organization);
-        // balance recipient market fee
-        // balance of beneficiary of transfer in openChannel
+        const balanceChannelBefore = await coin.balanceOf(channel.address);
 
         const refund = paymentChannelAmount - amountBuyed;
         const refund_ = '0x' + refund.toString(16);
@@ -475,25 +470,18 @@ contract('XBRNetwork', accounts => {
         const balanceMakerAfter = await coin.balanceOf(maker);
         const balanceConsumerAfter = await coin.balanceOf(consumer);
         const balanceOrganizationAfter = await coin.balanceOf(organization);
-        // balance recipient market fee
-        // balance of beneficiary of transfer in openChannel
-
-        const feeOrganization = amountBuyed * organizationFee;
-        const feeMarket = amountBuyed * marketFee;
-        const payout = amountBuyed - feeOrganization - feeMarket;
+        const balanceChannelAfter = await coin.balanceOf(channel.address);
 
         assert.equal('' + balanceMakerAfter, '' + balanceMakerBefore,
             "Maker's token balance should not change.");
-        assert.equal('' + balanceOperatorAfter, '' + (Number(balanceOperatorBefore) + payout),
-            "Operator's token balance doesn't match.");
+        assert.equal('' + balanceOperatorAfter, '' + balanceOperatorBefore,
+            "Operator's token balance should not change.");
         assert.equal('' + balanceConsumerAfter, '' + (Number(balanceConsumerBefore) + refund),
             "Consumer's token balance doesn't match.");
-        assert.equal('' + balanceOrganizationAfter, '' + (Number(balanceOrganizationBefore) + feeOrganization),
-            "Organization's token balance doesn't match.");
-        // Not implemented
-        // check recipient market fee, feeMarket
-        // Not implemented
-        // Check balance of beneficiary of transfer in openChannel
+        assert.equal('' + balanceOrganizationAfter, '' + balanceOrganizationBefore,
+            "Organization's token balance should not change.");
+        assert.equal('' + balanceChannelAfter, '' + (Number(balanceChannelBefore) - refund),
+            "Channel's token balance doesn't match.");
     });
 
 
@@ -501,7 +489,7 @@ contract('XBRNetwork', accounts => {
         const channelId = utils.sha3("ChannelPayingTestClose").substring(0, 34);
 
         // Open the channel to close
-        await coin.transfer(operator, payingChannelAmount, { from: account0, gasLimit: gasLimit });
+        await coin.transfer(channel.address, payingChannelAmount, { from: account0, gasLimit: gasLimit });
         const blockNumber = await web3.eth.getBlockNumber();
         // Generate operator's signature
         const channelOpen = {
@@ -511,24 +499,20 @@ contract('XBRNetwork', accounts => {
             'openedAt': blockNumber,
             'marketId': marketId,
             'channelId': channelId,
-            'actor': operator,
+            'actor': provider,
             'delegate': providerDelegate,
             'marketmaker': maker,
             'recipient': provider,
             'amount': payingChannelAmount
         };
-        const signOperator = createSigOpen_(channelOpen, operatorKey);
-        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId, operator, providerDelegate, maker, provider, payingChannelAmount, signOperator, { from: maker, gasLimit: gasLimit });
-
-        // To remove when implementation is complete
-        await coin.transfer(channel.address, payingChannelAmount, { from: account0, gasLimit: gasLimit });
+        const signProvider = createSigOpen_(channelOpen, providerKey);
+        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelId, provider, providerDelegate, maker, provider, payingChannelAmount, signProvider, { from: maker, gasLimit: gasLimit });
 
         const balanceOperatorBefore = await coin.balanceOf(operator);
         const balanceMakerBefore = await coin.balanceOf(maker);
         const balanceProviderBefore = await coin.balanceOf(provider);
         const balanceOrganizationBefore = await coin.balanceOf(organization);
-        // balance recipient market fee
-        // balance of beneficiary of transfer in openChannel
+        const balanceChannelBefore = await coin.balanceOf(channel.address);
 
         const refund = payingChannelAmount - amountSelled;
         const refund_ = '0x' + refund.toString(16);
@@ -552,25 +536,22 @@ contract('XBRNetwork', accounts => {
         const balanceMakerAfter = await coin.balanceOf(maker);
         const balanceProviderAfter = await coin.balanceOf(provider);
         const balanceOrganizationAfter = await coin.balanceOf(organization);
-        // balance recipient market fee
-        // balance of beneficiary of transfer in openChannel
+        const balanceChannelAfter = await coin.balanceOf(channel.address);
 
         const feeOrganization = amountSelled * organizationFee;
-        const feeMarket = amountSelled * marketFee;
+        const feeMarket = (amountSelled - feeOrganization) * marketFee / 100;
         const payout = amountSelled - feeOrganization - feeMarket;
 
         assert.equal('' + balanceMakerAfter, '' + balanceMakerBefore,
             "Maker's token balance should not change.");
         assert.equal('' + balanceProviderAfter, '' + (Number(balanceProviderBefore) + payout),
             "Provider's token balance doesn't match.");
-        assert.equal('' + balanceOperatorAfter, '' + (Number(balanceOperatorBefore) + refund),
+        assert.equal('' + balanceOperatorAfter, '' + (Number(balanceOperatorBefore) + feeMarket),
             "Operator's token balance doesn't match.");
         assert.equal('' + balanceOrganizationAfter, '' + (Number(balanceOrganizationBefore) + feeOrganization),
             "Organization's token balance doesn't match.");
-        // Not implemented
-        // check recipient market fee, feeMarket
-        // Not implemented
-        // Check balance of beneficiary of transfer in openChannel
+        assert.equal('' + balanceChannelAfter, '' + (Number(balanceChannelBefore) - Number(payingChannelAmount) + refund),
+            "Channel's token balance doesn't match.");
     });
 
 
@@ -584,11 +565,11 @@ contract('XBRNetwork', accounts => {
         assert.ok(!allPayingChannels.includes(channelIdPaying), "Channel paying found but not opened yet.");
 
         // Open channels
-        const amount = '0x0';
+        const amount = '0x' + (100 * Math.pow(10, 18)).toString(16);
         const refund_ = '0x0';
-        const blockNumber = await web3.eth.getBlockNumber();
         await coin.transfer(consumer, amount, { from: account0, gasLimit: gasLimit });
-        await coin.transfer(operator, amount, { from: account0, gasLimit: gasLimit });
+        await coin.approve(channel.address, amount, { from: consumer, gasLimit: gasLimit });
+        const blockNumber = await web3.eth.getBlockNumber();
         // Generate consumer's signature
         const channelOpenPayment = {
             'chainId': await network.verifyingChain(), //chainId,
@@ -601,7 +582,7 @@ contract('XBRNetwork', accounts => {
             'delegate': consumerDelegate,
             'marketmaker': maker,
             'recipient': operator,
-            'amount': paymentChannelAmount
+            'amount': amount
         };
         const signConsumer = createSigOpen_(channelOpenPayment, consumerKey);
         // Generate operator's signature
@@ -612,19 +593,15 @@ contract('XBRNetwork', accounts => {
             'openedAt': blockNumber,
             'marketId': marketId,
             'channelId': channelIdPaying,
-            'actor': operator,
+            'actor': provider,
             'delegate': providerDelegate,
             'marketmaker': maker,
             'recipient': provider,
-            'amount': payingChannelAmount
+            'amount': amount
         };
-        const signOperator = createSigOpen_(channelOpenPaying, operatorKey);
-        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment, consumer, consumerDelegate, maker, operator, paymentChannelAmount, signConsumer, { from: maker, gasLimit: gasLimit });
-        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelIdPaying, operator, providerDelegate, maker, provider, payingChannelAmount, signOperator, { from: maker, gasLimit: gasLimit });
-
-        // To remove when implementation is complete
-        await coin.transfer(channel.address, amount, { from: account0, gasLimit: gasLimit });
-        await coin.transfer(channel.address, amount, { from: account0, gasLimit: gasLimit });
+        const signProvider = createSigOpen_(channelOpenPaying, providerKey);
+        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment, consumer, consumerDelegate, maker, operator, amount, signConsumer, { from: maker, gasLimit: gasLimit });
+        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelIdPaying, provider, providerDelegate, maker, provider, amount, signProvider, { from: maker, gasLimit: gasLimit });
 
         // Open and close channel don't update Actor.channels -> will fail
         allPaymentChannels = await market.getAllPaymentChannels(marketId, consumer);
@@ -679,11 +656,11 @@ contract('XBRNetwork', accounts => {
         assert.equal(currentPayingChannel, addressNull, "Channel paying found but not opened yet.");
 
         // Open channels
-        const amount = '0';
+        const amount = '0x' + (115 * Math.pow(10, 18)).toString(16);
         const refund_ = '0';
-        const blockNumber = await web3.eth.getBlockNumber();
         await coin.transfer(consumer, amount, { from: account0, gasLimit: gasLimit });
-        await coin.transfer(operator, amount, { from: account0, gasLimit: gasLimit });
+        await coin.approve(channel.address, amount, { from: consumer, gasLimit: gasLimit });
+        const blockNumber = await web3.eth.getBlockNumber();
         // Generate consumer's signature
         const channelOpenPayment = {
             'chainId': await network.verifyingChain(), //chainId,
@@ -696,7 +673,7 @@ contract('XBRNetwork', accounts => {
             'delegate': consumerDelegate,
             'marketmaker': maker,
             'recipient': operator,
-            'amount': paymentChannelAmount
+            'amount': amount
         };
         const signConsumer = createSigOpen_(channelOpenPayment, consumerKey);
         // Generate operator's signature
@@ -707,19 +684,15 @@ contract('XBRNetwork', accounts => {
             'openedAt': blockNumber,
             'marketId': marketId,
             'channelId': channelIdPaying,
-            'actor': operator,
+            'actor': provider,
             'delegate': providerDelegate,
             'marketmaker': maker,
             'recipient': provider,
-            'amount': payingChannelAmount
+            'amount': amount
         };
-        const signOperator = createSigOpen_(channelOpenPaying, operatorKey);
-        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment, consumer, consumerDelegate, maker, operator, paymentChannelAmount, signConsumer, { from: maker, gasLimit: gasLimit });
-        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelIdPaying, operator, providerDelegate, maker, provider, payingChannelAmount, signOperator, { from: maker, gasLimit: gasLimit });
-
-        // To remove when implementation is complete
-        await coin.transfer(channel.address, amount, { from: account0, gasLimit: gasLimit });
-        await coin.transfer(channel.address, amount, { from: account0, gasLimit: gasLimit });
+        const signProvider = createSigOpen_(channelOpenPaying, providerKey);
+        await channel.openChannel(ChannelType_PAYMENT, blockNumber, marketId, channelIdPayment, consumer, consumerDelegate, maker, operator, amount, signConsumer, { from: maker, gasLimit: gasLimit });
+        await channel.openChannel(ChannelType_PAYING, blockNumber, marketId, channelIdPaying, provider, providerDelegate, maker, provider, amount, signProvider, { from: maker, gasLimit: gasLimit });
 
         //Open and close channel don't update Market.currentPay*ChannelByDelegate[delegate] -> will fail
         currentPaymentChannel = await market.currentPaymentChannelByDelegate(marketId, consumerDelegate);
