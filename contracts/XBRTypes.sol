@@ -116,7 +116,7 @@ library XBRTypes {
         uint256 consumerSecurity;
 
         /// Market fee rate for the market operator.
-        uint256 marketFee;
+        uint256 marketFee; // use uint8 instead ? If marketFee is percentage, 0 <= marketFee < 100
 
         /// This is the signature the user (market owner/operator) supplied for opening the market.
         bytes signature;

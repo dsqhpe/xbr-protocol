@@ -282,12 +282,12 @@ contract XBRMarket is XBRMaintained {
 
         // remember actor (by actor address) within market
         if (actorType == uint8(XBRTypes.ActorType.PROVIDER) || actorType == uint8(XBRTypes.ActorType.PROVIDER_CONSUMER)) {
-            markets[marketId].providerActors[member] = XBRTypes.Actor(joined, markets[marketId].providerSecurity, meta, signature, new address[](0));
+            markets[marketId].providerActors[member] = XBRTypes.Actor(joined, markets[marketId].providerSecurity, meta, signature, new bytes16[](0), new address[](0));
             markets[marketId].providerActorAdrs.push(member);
         }
 
         if (actorType == uint8(XBRTypes.ActorType.CONSUMER) || actorType == uint8(XBRTypes.ActorType.PROVIDER_CONSUMER)) {
-            markets[marketId].consumerActors[member] = XBRTypes.Actor(joined, markets[marketId].consumerSecurity, meta, signature, new address[](0));
+            markets[marketId].consumerActors[member] = XBRTypes.Actor(joined, markets[marketId].consumerSecurity, meta, signature, new bytes16[](0), new address[](0));
             markets[marketId].consumerActorAdrs.push(member);
         }
 
@@ -506,7 +506,7 @@ contract XBRMarket is XBRMaintained {
      * @param actor The XBR actor to get payment channels for.
      * @return List of contract addresses of payment channels in the market.
      */
-    function getAllPaymentChannels_(bytes16 marketId, addess actor) public view returns (bytes16[] memory) {
+    function getAllPaymentChannels_(bytes16 marketId, address actor) public view returns (bytes16[] memory) {
         return markets[marketId].consumerActors[actor].channels_;
     }
     // keep to match with ABI in crossbar libraries
