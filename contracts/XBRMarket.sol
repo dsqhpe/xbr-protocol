@@ -492,6 +492,10 @@ contract XBRMarket is XBRMaintained {
      * @param actor The XBR actor to get payment channels for.
      * @return List of contract addresses of payment channels in the market.
      */
+    function getAllPaymentChannels_(bytes16 marketId, addess actor) public view returns (bytes16[] memory) {
+        return markets[marketId].consumerActors[actor].channels_;
+    }
+    // keep to match with ABI in crossbar libraries
     function getAllPaymentChannels(bytes16 marketId, address actor) public view returns (address[] memory) {
         return markets[marketId].consumerActors[actor].channels;
     }
@@ -503,6 +507,10 @@ contract XBRMarket is XBRMaintained {
      * @param actor The XBR actor to get paying channels for.
      * @return List of contract addresses of paying channels in the market.
      */
+    function getAllPayingChannels_(bytes16 marketId, address actor) public view returns (bytes16[] memory) {
+        return markets[marketId].providerActors[actor].channels_;
+    }
+    // keep to match with ABI in crossbar libraries
     function getAllPayingChannels(bytes16 marketId, address actor) public view returns (address[] memory) {
         return markets[marketId].providerActors[actor].channels;
     }
@@ -514,6 +522,10 @@ contract XBRMarket is XBRMaintained {
      * @param delegate The delegate to get the current payment channel address for.
      * @return Current payment channel address for the given delegate/market.
      */
+    function currentPaymentChannelByDelegate_(bytes16 marketId, address delegate) public view returns (bytes16) {
+        return markets[marketId].currentPaymentChannelByDelegate_[delegate][0];
+    }
+    // keep to match with ABI in crossbar libraries
     function currentPaymentChannelByDelegate(bytes16 marketId, address delegate) public view returns (address) {
         return markets[marketId].currentPaymentChannelByDelegate[delegate];
     }
@@ -525,6 +537,10 @@ contract XBRMarket is XBRMaintained {
      * @param delegate The delegate to get the current paying channel address for.
      * @return Current paying channel address for the given delegate/market.
      */
+    function currentPayingChannelByDelegate_(bytes16 marketId, address delegate) public view returns (bytes16) {
+        return markets[marketId].currentPayingChannelByDelegate_[delegate][0];
+    }
+    // keep to match with ABI in crossbar libraries
     function currentPayingChannelByDelegate(bytes16 marketId, address delegate) public view returns (address) {
         return markets[marketId].currentPayingChannelByDelegate[delegate];
     }

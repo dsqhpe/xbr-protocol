@@ -76,6 +76,8 @@ library XBRTypes {
         bytes signature;
 
         /// All payment (paying) channels of the respective buyer (seller) actor.
+        bytes16[] channels_;
+        // keep to match with ABI in crossbar libraries
         address[] channels;
 
         mapping(address => mapping(bytes16 => Consent)) delegates;
@@ -129,9 +131,13 @@ library XBRTypes {
         mapping(address => Actor) consumerActors;
 
         /// Current payment channel by (buyer) delegate.
+        mapping(address => bytes16[]) currentPaymentChannelByDelegate_;
+        // keep to match with ABI in crossbar libraries
         mapping(address => address) currentPaymentChannelByDelegate;
 
         /// Current paying channel by (seller) delegate.
+        mapping(address => bytes16[]) currentPayingChannelByDelegate_;
+        // keep to match with ABI in crossbar libraries
         mapping(address => address) currentPayingChannelByDelegate;
     }
 
