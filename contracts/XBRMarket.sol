@@ -22,6 +22,8 @@ pragma experimental ABIEncoderV2;
 // https://openzeppelin.org/api/docs/math_SafeMath.html
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+
 import "./XBRMaintained.sol";
 import "./XBRTypes.sol";
 import "./XBRToken.sol";
@@ -181,9 +183,11 @@ contract XBRMarket is XBRMaintained {
 
         // FIXME: treat market fee
         require(marketFee >= 0 && marketFee < (network.token().totalSupply() - 10**7) * 10**18, "INVALID_MARKET_FEE");
+        // marketFee is a percentage
+        require(marketFee >= 0 && marketFee < 100, "INVALID_MARKET_FEE");
 
         // now remember out new market ..
-        markets[marketId] = XBRTypes.Market(created, marketSeq, member, coin, terms, meta, maker,
+        markets[marketId] = XBRTypes.Market(created, marketSeq, member, coin, ERC20(coin), terms, meta, maker,
             providerSecurity, consumerSecurity, marketFee, signature, new address[](0), new address[](0));
 
         // .. and the market-maker-to-market mapping
@@ -418,6 +422,16 @@ contract XBRMarket is XBRMaintained {
     /// Get the market maker for the given market.
     function getMarketMaker(bytes16 marketId) public view returns (address) {
         return markets[marketId].maker;
+    }
+
+    /// Get market fee for the given market.
+    function getMarketFee(bytes16 marketId) public view returns (uint256) {
+        return markets[marketId].marketFee;
+    }
+
+    /// Get token used for the given market.
+    function getMarketToken(bytes16 marketId) public view returns (ERC20) {
+        return markets[marketId].coin_;
     }
 
     /// Get the n-th market owned by the given member.

@@ -19,6 +19,8 @@
 pragma solidity ^0.5.12;
 pragma experimental ABIEncoderV2;
 
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+
 
 /**
  * The `XBR Types <https://github.com/crossbario/xbr-protocol/blob/master/contracts/XBRTypes.sol>`__
@@ -96,6 +98,7 @@ library XBRTypes {
 
         /// The coin (ERC20 token) to be used in the market as the means of payment.
         address coin;
+        ERC20 coin_;
 
         /// Market terms (IPFS Multihash).
         string terms;

@@ -25,6 +25,8 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 // https://openzeppelin.org/api/docs/cryptography_ECDSA.html
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+
 import "./XBRMaintained.sol";
 import "./XBRTypes.sol";
 import "./XBRToken.sol";
@@ -234,11 +236,17 @@ contract XBRChannel is XBRMaintained {
         // the remaining amount (send back to the buyer) via the last off-chain balance
         uint256 refund = balance;
 
-        // the fee to the xbr network is 1% of the earned amount
-        uint256 fee = earned / 100;
+        uint256 feeOrganization = 0;
+        uint256 feeMarket = 0;
+        // apply fee only one time : in paying channel
+        if (channels[channelId].ctype == PAYING) {
+            // the fee to the xbr network is 1% of the earned amount
+            feeOrganization = earned / 100;
+            feeMarket = (earned - feeOrganization) * market.getMarketFee(marketId) / 100;
+        }
 
         // the amount paid out to the recipient
-        uint256 payout = earned - fee;
+        uint256 payout = earned - feeOrganization - feeMarket;
 
         // FIXME: read from market configuration
         // uint32 timeout = 1440;
@@ -270,16 +278,22 @@ contract XBRChannel is XBRMaintained {
 
             // now send tokens locked in this channel (which escrows the tokens) to the recipient,
             // the xbr network (for the network fee), and refund remaining tokens to the original sender
+            ERC20 coin = market.getMarketToken(marketId);
+
             if (payout > 0) {
-                require(market.network().token().transfer(channels[channelId].recipient, payout), "CHANNEL_CLOSE_PAYOUT_TRANSFER_FAILED");
+                require(coin.transfer(channels[channelId].recipient, payout), "CHANNEL_CLOSE_PAYOUT_TRANSFER_FAILED");
             }
 
             if (refund > 0) {
-                require(market.network().token().transfer(channels[channelId].actor, refund), "CHANNEL_CLOSE_REFUND_TRANSFER_FAILED");
+                require(coin.transfer(channels[channelId].actor, refund), "CHANNEL_CLOSE_REFUND_TRANSFER_FAILED");
             }
 
-            if (fee > 0) {
-                require(market.network().token().transfer(market.network().organization(), fee), "CHANNEL_CLOSE_FEE_TRANSFER_FAILED");
+            if (feeOrganization > 0) {
+                require(coin.transfer(market.network().organization(), feeOrganization), "CHANNEL_CLOSE_FEE_ORGANISATION_TRANSFER_FAILED");
+            }
+
+            if (feeMarket > 0) {
+                require(coin.transfer(market.getMarketOwner(marketId), feeMarket), "CHANNEL_CLOSE_FEE_MARKET_TRANSFER_FAILED");
             }
 
             // mark channel as closed (but do not selfdestruct)
@@ -287,6 +301,7 @@ contract XBRChannel is XBRMaintained {
             channelClosingStates[channelId].state = XBRTypes.ChannelState.CLOSED;
 
             // notify channel observers
+            uint256 fee = feeOrganization + feeMarket;
             emit Closed(channels[channelId].ctype, channels[channelId].marketId, channelId,
                 payout, fee, refund, block.timestamp);
         }
