@@ -155,8 +155,10 @@ contract XBRChannel is XBRMaintained {
         // signature must have been created in a window of 5 blocks from the current one
         require(openedAt <= block.number && openedAt >= (block.number - 4), "INVALID_REGISTERED_BLOCK_NUMBER");
 
+        ERC20 coin = market.getMarketToken(marketId);
+
         // payment channel amount must be positive
-        require(amount > 0 && amount <= market.network().token().totalSupply(), "INVALID_CHANNEL_AMOUNT");
+        require(amount > 0 && amount <= coin.totalSupply(), "INVALID_CHANNEL_AMOUNT");
 
         // the data used to open the new channel must have a valid signature, signed by the
         // actor (buyer/seller in the market)
@@ -166,6 +168,11 @@ contract XBRChannel is XBRMaintained {
         require(XBRTypes.verify(actor, eip712_obj, signature), "INVALID_CHANNEL_SIGNATURE");
 
         // Everything is OK! Continue actually opening the channel ..
+
+        // Only consumer transfers token to channel. Tokens will stay here until close paying channel.
+        if (ctype == XBRTypes.ChannelType.PAYMENT) {
+            require(coin.transferFrom(actor, address(this), amount), "CHANNEL_OPEN_AMOUNT_TRANSFER_FAILED");
+        }
 
         // track channel static information
         channels[channelId] = XBRTypes.Channel(openedAt, channelSeq, ctype, marketId, channelId, actor,
@@ -230,23 +237,28 @@ contract XBRChannel is XBRMaintained {
             require(channelClosingStates[channelId].closingSeq < closingChannelSeq, "OUTDATED_TRANSACTION");
         }
 
+        ChannelType ctype = channels[channelId].ctype;
+
         // the amount earned (by the recipient) is initial channel amount minus last off-chain balance
         uint256 earned = (channels[channelId].amount - balance);
 
         // the remaining amount (send back to the buyer) via the last off-chain balance
-        uint256 refund = balance;
+        uint256 refund = 0;
+        if (ctype == XBRTypes.ChannelType.PAYMENT) {
+            refund = balance;
+        }
 
+        // the amount paid out to the provider only
+        uint payout = 0;
+        // apply fee only one time : in paying channel
         uint256 feeOrganization = 0;
         uint256 feeMarket = 0;
-        // apply fee only one time : in paying channel
-        if (channels[channelId].ctype == PAYING) {
+        if (ctype == XBRTypes.ChannelType.PAYING) {
             // the fee to the xbr network is 1% of the earned amount
             feeOrganization = earned / 100;
             feeMarket = (earned - feeOrganization) * market.getMarketFee(marketId) / 100;
+            payout = earned - feeOrganization - feeMarket;
         }
-
-        // the amount paid out to the recipient
-        uint256 payout = earned - feeOrganization - feeMarket;
 
         // FIXME: read from market configuration
         // uint32 timeout = 1440;
